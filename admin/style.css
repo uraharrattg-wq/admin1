@@ -1,0 +1,19 @@
+/* Простая адаптивная стилизация (mobile-first) */
+:root{ --bg:#f6f8fa; --card:#ffffff; --muted:#666; --accent:#0b79d0 }
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);font-family:Segoe UI, Roboto, Arial, sans-serif}
+.wrap{padding:16px;max-width:760px;margin:0 auto}
+h1{font-size:1.25rem;margin:0 0 12px}
+.card{background:var(--card);padding:12px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin-bottom:12px}
+.card.small{font-size:0.95rem}
+label{display:block;margin-top:10px;margin-bottom:6px;font-size:0.9rem}
+input[type=text], input[type=password], input{width:100%;padding:8px;border-radius:6px;border:1px solid #ddd}
+.buttons{display:flex;gap:8px;margin-top:12px}
+button{flex:1;padding:10px;border-radius:6px;border:0;background:var(--accent);color:#fff;font-weight:600}
+button[disabled]{opacity:0.6}
+.muted{color:var(--muted);font-size:0.85rem}
+.status{margin-top:10px;padding:8px;border-radius:6px;background:#f3f7f3;color:#0a6d0a}
+@media(min-width:720px){
+  .buttons{flex-direction:row}
+  input{padding:10px}
+}
