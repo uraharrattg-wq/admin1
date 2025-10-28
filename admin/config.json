@@ -1,8 +1,8 @@
 {
   "owner": "uraharrattg-wq",
   "templateOwner": "uraharrattg-wq",
-  "templateRepo": "https://github.com/uraharrattg-wq/Shablon1",
+  "templateRepo": "Shablon1",
   "filePath": "FAKE/values.js",
-  "pat": "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",
+  "pat": "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",
   "defaultBranches": ["main", "master"]
 }

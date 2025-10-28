@@ -8,6 +8,7 @@
 </head>
 <body>
   <main class="wrap">
+    <button id="globalBack" class="global-back" title="Назад" style="display:none">←</button>
     <h1>Admin panel</h1>
     <!-- Start choice: Create new or Edit existing -->
     <section class="card" id="startChoice">
@@ -26,8 +27,9 @@
       <label>Template repo</label>
       <input id="templateRepo" placeholder="TEMPLATE_REPO" />
 
-      <label>Owner (куда создать репо)</label>
-      <input id="owner" placeholder="your-username-or-org" />
+  <!-- Owner is hidden in the UI but its value is used for API calls -->
+  <input id="owner" type="hidden" />
+  <div class="muted" style="margin-bottom:8px">Owner: <strong id="inlineOwner">(not set)</strong></div>
 
       <label>Repo name (slug) — имя репозитория для клиента</label>
       <input id="repo" placeholder="client-slug" />
@@ -42,9 +44,9 @@
       <input id="image" placeholder="https://.../image.jpg" />
 
       <div class="buttons">
-        <button id="btnIssue">Создать Issue (без PAT)</button>
-        <button id="btnDirect">Создать репо (с PAT)</button>
-        <button id="btnDispatch">Обновить repo (dispatch)</button>
+       
+        <button id="btnDirect">Создать</button>
+        
       </div>
 <div style="display:none;align-items:center;gap:8px">
       <label class="muted">Advanced (вставьте PAT, только если доверяете устройству)</label>
@@ -55,14 +57,7 @@
       <div class="status" id="status">Статус: готов</div>
     </section>
 
-    <section class="card small">
-      <h2>Инструкции (коротко)</h2>
-      <ul>
-        <li>1) Prefilled Issue — безопасно: откроет форму Issue в шаблонном репо, Action создаст клиент‑repo.</li>
-        <li>2) Direct API — быстро: вставьте PAT и нажмите «Создать репо». PAT хранится только в localStorage.</li>
-        <li>Перед использованием заполните поля <em>Template owner</em> и <em>Template repo</em> (куда привязаны workflow).</li>
-      </ul>
-    </section>
+   
 
     <!-- Repo list for edit mode -->
     <section class="card" id="repoListCard" style="display:none">
@@ -77,18 +72,19 @@
     <!-- Editor for Values.js -->
     <section class="card" id="editorCard" style="display:none">
       <h2>Редактор Values.js</h2>
-  <label>Path to file (жёстко задано)</label>
-  <input id="filePath" value="FAKE/values.js" readonly />
-      <label>Содержимое</label>
+  <label style="display:none">Path to file (жёстко задано)</label>
+  <input style="display:none" id="filePath" value="FAKE/values.js" readonly />
+      <label style="display:none">Содержимое</label>
       <textarea id="fileEditor" style="width:100%;height:260px;font-family:monospace"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button id="btnSaveFile">Сохранить изменения</button>
-        <button id="btnDispatchFromEditor">Сохранить через Dispatch</button>
+        
       </div>
       <div class="status" id="editorStatus">Статус: готов</div>
     </section>
 
   </main>
+  <div id="toast-container"></div>
   <script src="./app.js"></script>
 </body>
 </html>
