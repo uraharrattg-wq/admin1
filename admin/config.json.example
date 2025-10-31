@@ -1,0 +1,7 @@
+{
+  "owner": "your-username",
+  "templateOwner": "your-username",
+  "templateRepo": "template-repo-name",
+  "filePath": "path/to/values.js",
+  "defaultBranches": ["main", "master"]
+}

@@ -43,10 +43,18 @@
       <label>Image URL (опционально)</label>
       <input id="image" placeholder="https://.../image.jpg" />
 
+      <label>GitHub Personal Access Token (PAT)</label>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <input id="pat" type="password" placeholder="ghp_..." style="flex:1" />
+        <button id="savePat">Сохранить PAT</button>
+        <button id="clearPat">Очистить PAT</button>
+      </div>
+      <div class="pat-status" id="patStatus" style="margin-bottom:16px">
+        Статус токена: <span id="patStatusText">не проверен</span>
+      </div>
+
       <div class="buttons">
-       
         <button id="btnDirect">Создать</button>
-        
       </div>
 <div align-items:center;gap:8px">
       <label class="muted">Advanced (вставьте PAT, только если доверяете устройству)</label>

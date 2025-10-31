@@ -8,6 +8,7 @@
 
 const $ = id => document.getElementById(id);
 const statusEl = $('status');
+const patStatusEl = $('patStatusText');
 
 // Default template repo configuration
 const FIXED_TEMPLATE_OWNER = () => 'uraharrattg-wq';
@@ -87,27 +88,57 @@ async function setPat(token) {
     }
 }
 
+async function loadConfig() {
+    try {
+        const response = await fetch('config.json');
+        if (!response.ok) throw new Error('Config fetch failed');
+        return await response.json();
+    } catch(e) {
+        console.error('Ошибка загрузки конфига:', e);
+        return null;
+    }
+}
+
 function getPat(){
-   try{
-      if(IN_MEMORY_PAT) {
-         console.log('Используется токен из памяти');
-         return IN_MEMORY_PAT;
-      }
-      const saved = localStorage.getItem('admin_pat');
-      if(saved) {
-         console.log('Используется токен из localStorage');
-         return saved;
-      }
-   }catch(e){ 
-      console.warn('Ошибка доступа к localStorage:', e);
-   }
-   const input = $('pat');
-   if(!input) {
-      console.warn('Элемент ввода PAT не найден');
-      return '';
-   }
-   console.log('Используется токен из поля ввода');
-   return input.value || '';
+    try {
+        // Проверяем токен в памяти
+        if(IN_MEMORY_PAT) {
+            console.log('Используется токен из памяти');
+            return IN_MEMORY_PAT;
+        }
+
+        // Пытаемся загрузить из конфига
+        fetch('config.json')
+            .then(response => response.json())
+            .then(config => {
+                if (config && config.pat) {
+                    console.log('Используется токен из конфига');
+                    IN_MEMORY_PAT = config.pat;
+                }
+            })
+            .catch(e => console.warn('Ошибка загрузки конфига:', e));
+
+        // Возвращаем токен из памяти если он был загружен из конфига
+        if(IN_MEMORY_PAT) return IN_MEMORY_PAT;
+        
+        // Проверяем localStorage как запасной вариант
+        const saved = localStorage.getItem('admin_pat');
+        if(saved) {
+            console.log('Используется токен из localStorage');
+            return saved;
+        }
+    } catch(e) { 
+        console.warn('Ошибка доступа к хранилищу:', e);
+    }
+
+    // В крайнем случае используем поле ввода
+    const input = $('pat');
+    if(!input) {
+        console.warn('Элемент ввода PAT не найден');
+        return '';
+    }
+    console.log('Используется токен из поля ввода');
+    return input.value || '';
 }
 
 function setStatus(text, err=false){
@@ -991,6 +1022,65 @@ async function enablePagesAndTrigger(owner, repo, pat){
 }
 
 // ========== New: start choice, repo list and editor logic ============
+
+// Обновление статуса PAT
+async function updatePatStatus() {
+    const pat = getPat();
+    if (!pat) {
+        if (patStatusEl) {
+            patStatusEl.textContent = 'не задан';
+            patStatusEl.style.color = '#9b2c2c';
+        }
+        return;
+    }
+
+    try {
+        const check = await checkPatScopes(pat);
+        if (patStatusEl) {
+            patStatusEl.textContent = check.valid ? 'активен' : check.message;
+            patStatusEl.style.color = check.valid ? '#0a6d0a' : '#9b2c2c';
+        }
+    } catch(e) {
+        if (patStatusEl) {
+            patStatusEl.textContent = 'ошибка проверки: ' + e.message;
+            patStatusEl.style.color = '#9b2c2c';
+        }
+        console.error('Ошибка проверки токена:', e);
+    }
+}
+
+// Инициализация обработчиков PAT
+function initializePat() {
+    const savePat = $('savePat');
+    const clearPatBtn = $('clearPat');
+    const patInput = $('pat');
+    
+    if (savePat) {
+        savePat.addEventListener('click', async () => {
+            if (!patInput) return;
+            const token = patInput.value.trim();
+            if (!token) {
+                showToast('Введите токен', true);
+                return;
+            }
+            await setPat(token);
+            updatePatStatus();
+        });
+    }
+    
+    if (clearPatBtn) {
+        clearPatBtn.addEventListener('click', () => {
+            clearPat();
+            updatePatStatus();
+        });
+    }
+    
+    // Проверяем статус PAT при загрузке
+    updatePatStatus();
+}
+
+// Вызываем инициализацию при загрузке страницы
+window.addEventListener('DOMContentLoaded', initializePat);
 
 function show(el){ if(el) el.style.display = ''; }
 function hide(el){ if(el) el.style.display = 'none'; }

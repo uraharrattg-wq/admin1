@@ -3,6 +3,6 @@
   "templateOwner": "uraharrattg-wq",
   "templateRepo": "Shablon1",
   "filePath": "FAKE/values.js",
-  "pat": "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",
-  "defaultBranches": ["main", "master"]
+  "defaultBranches": ["main", "master"],
+  "pat": "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"
 }
