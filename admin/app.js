@@ -16,6 +16,25 @@ const FIXED_TEMPLATE_REPO = () => 'Shablon1';
 // In-memory PAT (keeps token out of visible input when loaded from config.json or localStorage)
 let IN_MEMORY_PAT = null;
 
+// Показать всплывающее сообщение
+function showToast(message, isError = false) {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${isError ? '#ff4444' : '#44ff44'};
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        z-index: 1000;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
 // Очистка токена из всех хранилищ
 function clearPat() {
     IN_MEMORY_PAT = null;
@@ -30,19 +49,41 @@ function clearPat() {
 }
 
 // Установка токена во все хранилища
-function setPat(token) {
+async function setPat(token) {
     if(!token) {
         clearPat();
+        showToast('Токен очищен', false);
         return;
     }
-    IN_MEMORY_PAT = token;
+
+    // Проверяем формат токена
+    if (!token.match(/^ghp_[a-zA-Z0-9]{36}$/)) {
+        showToast('Неверный формат токена. Токен должен начинаться с ghp_ и содержать 40 символов', true);
+        return;
+    }
+
     try {
+        // Сначала проверяем токен
+        const check = await checkPatScopes(token);
+        if (!check.valid) {
+            showToast(check.message, true);
+            return;
+        }
+
+        // Если проверка прошла успешно, сохраняем токен
+        IN_MEMORY_PAT = token;
         localStorage.setItem('admin_pat', token);
         const input = $('pat');
         if(input) input.value = token;
-        console.log('Токен успешно сохранен');
+        
+        console.log('Токен успешно проверен и сохранен');
+        showToast('Токен успешно сохранен и проверен', false);
+        
+        // Обновляем статус на странице
+        setStatus('Токен активен и имеет все необходимые права');
     } catch(e) {
-        console.error('Ошибка при сохранении токена:', e);
+        console.error('Ошибка при сохранении/проверке токена:', e);
+        showToast('Ошибка при сохранении токена: ' + e.message, true);
     }
 }
 
