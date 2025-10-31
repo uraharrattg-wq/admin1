@@ -17,12 +17,25 @@ const FIXED_TEMPLATE_REPO = () => 'Shablon1';
 let IN_MEMORY_PAT = null;
 function getPat(){
    try{
-      if(IN_MEMORY_PAT) return IN_MEMORY_PAT;
+      if(IN_MEMORY_PAT) {
+         console.log('Используется токен из памяти');
+         return IN_MEMORY_PAT;
+      }
       const saved = localStorage.getItem('admin_pat');
-      if(saved) return saved;
-   }catch(e){ /* ignore storage */ }
+      if(saved) {
+         console.log('Используется токен из localStorage');
+         return saved;
+      }
+   }catch(e){ 
+      console.warn('Ошибка доступа к localStorage:', e);
+   }
    const input = $('pat');
-   return input? input.value : '';
+   if(!input) {
+      console.warn('Элемент ввода PAT не найден');
+      return '';
+   }
+   console.log('Используется токен из поля ввода');
+   return input.value || '';
 }
 
 function setStatus(text, err=false){
@@ -952,14 +965,37 @@ async function listRepos(){
    if(repoListEl) repoListEl.innerHTML = '';
    try{
       const pat = getPat();
-      const headers = pat ? { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github+json' } : { 'Accept': 'application/vnd.github+json' };
+      if (!pat) {
+         setStatus('Токен не найден. Пожалуйста, введите PAT', true);
+         return;
+      }
+      
+      const headers = { 
+         'Authorization': 'token ' + pat, 
+         'Accept': 'application/vnd.github+json',
+         'X-GitHub-Api-Version': '2022-11-28'
+      };
+      console.log('Запрос списка репозиториев для', owner);
       let resp = await fetch(`https://api.github.com/users/${owner}/repos`, { headers });
-      // If the owner is an organization and the users API returns 403, try the orgs API (requires auth)
-      if(resp.status === 403 && pat){
-         console.warn('users API returned 403, trying orgs API with Authorization');
+      
+      // Если получили 401/403, попробуем через API организаций
+      if (resp.status === 401) {
+         console.error('Ошибка авторизации (401). Проверьте токен.');
+         setStatus('Ошибка авторизации. Проверьте токен', true);
+         return;
+      }
+      
+      if (resp.status === 403) {
+         console.warn('users API вернул 403, пробуем API организаций');
          resp = await fetch(`https://api.github.com/orgs/${owner}/repos`, { headers });
       }
-      if(!resp.ok){ setStatus('Ошибка получения списка: '+resp.status, true); return; }
+      
+      if (!resp.ok) {
+         const errorText = await resp.text();
+         console.error('Ошибка API:', resp.status, errorText);
+         setStatus(`Ошибка получения списка: ${resp.status} - ${errorText}`, true);
+         return;
+      }
       const arr = await resp.json();
       if(!Array.isArray(arr) || arr.length===0){ if(repoListEl) repoListEl.innerHTML = '<li>Репозиториев не найдено</li>'; setStatus('Готово'); return; }
       arr.sort((a,b)=> a.name.localeCompare(b.name));
