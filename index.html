@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin Panel — Создать/обновить клиента</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main class="wrap">
+    <button id="globalBack" class="global-back" title="Назад" style="display:none">←</button>
+    <h1>Admin panel</h1>
+    <!-- Start choice: Create new or Edit existing -->
+    <section class="card" id="startChoice">
+      <h2>Выберите действие</h2>
+      <div style="display:flex;gap:8px">
+        <button id="chooseCreate">Создать новую страницу</button>
+        <button id="chooseEdit">Изменить существующую</button>
+      </div>
+      <p class="muted">Создание — сделает репо из шаблона. Редактирование — покажет список репозиториев.</p>
+    </section>
+
+    <section class="card" id="mainForm" style="display:none">
+      <label>Template owner (смените в коде или здесь)</label>
+      <input id="templateOwner" placeholder="TEMPLATE_OWNER" />
+
+      <label>Template repo</label>
+      <input id="templateRepo" placeholder="TEMPLATE_REPO" />
+
+  <!-- Owner is hidden in the UI but its value is used for API calls -->
+  <input id="owner" type="hidden" />
+  <div class="muted" style="margin-bottom:8px">Owner: <strong id="inlineOwner">(not set)</strong></div>
+
+      <label>Repo name (slug) — имя репозитория для клиента</label>
+      <input id="repo" placeholder="client-slug" />
+
+      <label>Title / Заголовок страницы</label>
+      <input id="title" placeholder="Название клиента" />
+
+      <label>Short description / Короткое описание</label>
+      <input id="desc" placeholder="Короткое описание" />
+
+      <label>Image URL (опционально)</label>
+      <input id="image" placeholder="https://.../image.jpg" />
+
+      <div class="buttons">
+       
+        <button id="btnDirect">Создать</button>
+        
+      </div>
+<div align-items:center;gap:8px">
+      <label class="muted">Advanced (вставьте PAT, только если доверяете устройству)</label>
+      
+        <input id="pat" type="password" placeholder="ghp_xxx..." />
+        <span id="patIndicator" class="muted" style="font-size:0.9em"></span>
+      </div>
+      <div class="status" id="status">Статус: готов</div>
+    </section>
+
+   
+
+    <!-- Repo list for edit mode -->
+    <section class="card" id="repoListCard" style="display:none">
+      <h2>Репозитории</h2>
+      <div>Configured owner: <strong id="configOwner">(not set)</strong></div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button id="btnListRepos">Показать репозитории</button>
+      </div>
+      <ul id="repoList" style="margin-top:12px;list-style:none;padding:0"></ul>
+    </section>
+
+    <!-- Editor for Values.js -->
+    <section class="card" id="editorCard" style="display:none">
+      <h2>Редактор Values.js</h2>
+  <label style="display:none">Path to file (жёстко задано)</label>
+  <input style="display:none" id="filePath" value="FAKE/values.js" readonly />
+      <label style="display:none">Содержимое</label>
+      <textarea id="fileEditor" style="width:100%;height:260px;font-family:monospace"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="btnSaveFile">Сохранить изменения</button>
+        
+      </div>
+      <div class="status" id="editorStatus">Статус: готов</div>
+    </section>
+
+  </main>
+  <div id="toast-container"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
