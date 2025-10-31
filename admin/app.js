@@ -80,9 +80,110 @@ function openPrefilledIssue(){
 }
 
 // --- Direct API (использовать осторожно) ---
+async function checkPatScopes(pat) {
+   try {
+      // Получаем настройки из конфига
+      let config;
+      try {
+         const response = await fetch('config.json');
+         if (!response.ok) throw new Error('Config fetch failed: ' + response.status);
+         config = await response.json();
+         console.log('Конфигурация загружена успешно');
+      } catch (e) {
+         console.error('Ошибка загрузки конфига:', e);
+         // Используем дефолтные значения из констант
+         config = {
+            templateOwner: FIXED_TEMPLATE_OWNER(),
+            templateRepo: FIXED_TEMPLATE_REPO()
+         };
+         console.log('Используются значения по умолчанию:', config);
+      }
+      
+      // Сначала проверим права на repo через конкретный endpoint
+      const repoResponse = await fetch('https://api.github.com/repos/' + config.templateOwner + '/' + config.templateRepo, {
+         headers: {
+            'Authorization': 'token ' + pat,
+            'Accept': 'application/vnd.github+json'
+         }
+      });
+      
+      console.log('Проверка прав repo:', repoResponse.status);
+      
+      // Проверим права на workflow через другой endpoint
+      const workflowResponse = await fetch('https://api.github.com/repos/' + config.templateOwner + '/' + config.templateRepo + '/actions/workflows', {
+         headers: {
+            'Authorization': 'token ' + pat,
+            'Accept': 'application/vnd.github+json'
+         }
+      });
+      
+      console.log('Проверка прав workflow:', workflowResponse.status);
+      
+      // Проверим права на pages
+      const pagesResponse = await fetch('https://api.github.com/repos/' + config.templateOwner + '/' + config.templateRepo + '/pages', {
+         headers: {
+            'Authorization': 'token ' + pat,
+            'Accept': 'application/vnd.github+json'
+         }
+      });
+      
+      console.log('Проверка прав pages:', pagesResponse.status);
+      
+      // Проверяем результаты
+      const hasRepo = repoResponse.ok;
+      const hasWorkflow = workflowResponse.ok;
+      const hasPages = pagesResponse.status !== 404;
+      
+      console.log('Результаты проверки прав:', {
+         repo: hasRepo,
+         workflow: hasWorkflow,
+         pages: hasPages
+      });
+      
+      // Выведем все заголовки и тело ответов для отладки
+      console.log('Repo response:', await repoResponse.text());
+      console.log('Workflow response:', await workflowResponse.text());
+      console.log('Pages response:', await pagesResponse.text());
+      
+      const missing = [];
+      if (!hasRepo) missing.push('repo');
+      if (!hasWorkflow) missing.push('workflow');
+      if (!hasPages) missing.push('pages');
+      
+      if (missing.length > 0) {
+         return {
+            valid: false,
+            message: `Токену не хватает прав: ${missing.join(', ')}. Нужны права: repo, workflow, pages`
+         };
+      }
+      
+      return { valid: true };
+      
+      if(missing.length > 0) {
+         return {
+            valid: false,
+            message: `Токену не хватает прав: ${missing.join(', ')}. Нужны права: repo, workflow, pages`
+         };
+      }
+      
+      return { valid: true };
+   } catch(e) {
+      return { valid: false, message: 'Ошибка проверки токена: ' + (e.message || e) };
+   }
+}
+
 async function directCreateRepo(){
    const pat = getPat();
    if(!pat){ setStatus('PAT не указан', true); return; }
+   
+   // Проверяем права токена
+   const check = await checkPatScopes(pat);
+   if(!check.valid) {
+      setStatus(check.message, true);
+      showToast(check.message, false);
+      return;
+   }
+   
    try{ localStorage.setItem('admin_pat', pat); }catch(e){}
    const parsed = parseTemplateOwnerRepo();
    const tplOwner = parsed.owner || 'TEMPLATE_OWNER';
@@ -95,11 +196,14 @@ async function directCreateRepo(){
 
    // 1) Generate repo from template
    const genUrl = `https://api.github.com/repos/${tplOwner}/${tplRepo}/generate`;
-   const genBody = {
+   console.log('Using template URL:', genUrl);
+   
+   const genBody = JSON.stringify({
       name: repo,
-      owner: owner,
-      private: false
-   };
+      description: "Generated from template",
+      private: false,
+      include_all_branches: false
+   }, null, 2);
 
    try{
       setStatus('Проверяю существование шаблона...');
@@ -143,15 +247,28 @@ async function directCreateRepo(){
          headers: {
             'Authorization': 'token ' + pat,
             'Accept': 'application/vnd.github.baptiste-preview+json',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2020-07-01'
          },
-         body: JSON.stringify(genBody)
+         body: JSON.stringify({
+            name: repo,
+            description: "Generated from template",
+            private: false,
+            include_all_branches: true
+         })
       });
 
       if(!genResp.ok){
          let bodyText = '';
          try{ const j = await genResp.json(); bodyText = JSON.stringify(j); }catch(e){ try{ bodyText = await genResp.text(); }catch(e2){ bodyText = ''; } }
-         console.error('generate repo failed', genResp.status, bodyText);
+         console.error('generate repo failed', genResp.status);
+         console.log('Response headers:', Object.fromEntries(genResp.headers));
+         console.log('Response body:', bodyText);
+         try {
+            console.log('Response JSON:', JSON.parse(bodyText));
+         } catch(e) {
+            console.log('Failed to parse response as JSON:', e);
+         }
          // Provide targeted hints for common cases
          if(genResp.status === 404){
             const msg = 'Ошибка 404: шаблон не найден или путь некорректен. Проверьте templateOwner/templateRepo и что репозиторий является Template (в настройках GitHub). url: ' + genUrl;
@@ -160,6 +277,11 @@ async function directCreateRepo(){
             return;
          }
          if(genResp.status === 403){
+            // Тело ответа уже прочитано выше и сохранено в bodyText
+            console.log('Полный ответ сервера 403:', bodyText);
+            console.log('Заголовки ответа:');
+            genResp.headers.forEach((value, key) => console.log(key + ': ' + value));
+            
             const msg = 'Ошибка 403: недостаточно прав. Убедитесь, что PAT имеет scope repo и вы можете создавать репозитории в указанном owner (для организаций требуются права).';
             setStatus(msg + ' Response: ' + bodyText, true);
             showToast(msg, false);
@@ -174,6 +296,33 @@ async function directCreateRepo(){
       const genData = await genResp.json();
       const fullName = genData.full_name || `${owner}/${repo}`;
       setStatus('Репозиторий создан: ' + fullName);
+
+      // Убедимся что репозиторий публичный
+      try {
+        const updateUrl = `https://api.github.com/repos/${actualOwner}/${actualRepo}`;
+        const updateResp = await fetch(updateUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': 'token ' + pat,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            private: false,
+            has_issues: true,
+            has_wiki: false,
+            has_projects: false
+          })
+        });
+        
+        if(updateResp.ok) {
+          console.log('Repository settings updated successfully');
+        } else {
+          console.warn('Failed to update repository settings:', updateResp.status);
+        }
+      } catch(e) {
+        console.warn('Error updating repository settings:', e);
+      }
       // Use the actual owner/name returned by the API — GitHub may alter the repo name if requested name exists
       const actualOwner = (genData.owner && genData.owner.login) ? genData.owner.login : owner;
       const actualRepo = genData.name || repo;
@@ -613,21 +762,24 @@ permissions:
 jobs:
    deploy:
       runs-on: ubuntu-latest
-      environment: github-pages
+      environment:
+         name: github-pages
+         url: \${{ steps.deployment.outputs.page_url }}
       steps:
          - name: Checkout
-            uses: actions/checkout@v4
+           uses: actions/checkout@v4
 
-         - name: Configure Pages
-            uses: actions/configure-pages@v3
+         - name: Setup Pages
+           uses: actions/configure-pages@v4
 
-         - name: Upload artifact for GitHub Pages
-            uses: actions/upload-pages-artifact@v1
-            with:
-               path: ./
+         - name: Upload artifact
+           uses: actions/upload-pages-artifact@v2
+           with:
+              path: ./
 
          - name: Deploy to GitHub Pages
-            uses: actions/deploy-pages@v1
+           id: deployment
+           uses: actions/deploy-pages@v3
 `;
 
 // Try to ensure a Pages workflow exists and enable Pages for a repository.
@@ -635,6 +787,28 @@ jobs:
 // 2) create `.github/workflows/pages.yml` if missing
 // 3) call PUT /repos/:owner/:repo/pages to enable Pages
 // 4) trigger POST /repos/:owner/:repo/pages/builds to start a build
+async function waitForPagesUrl(owner, repo, pat, maxAttempts = 10) {
+   const headers = { 'Authorization': 'token ' + pat, 'Accept': 'application/vnd.github+json' };
+   for(let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+         const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`;
+         const resp = await fetch(url, { headers });
+         if(resp.ok) {
+            const data = await resp.json();
+            if(data.html_url) {
+               console.log('Pages URL found:', data.html_url);
+               return data.html_url;
+            }
+         }
+         console.log(`Waiting for Pages URL (attempt ${attempt}/${maxAttempts})...`);
+         await new Promise(resolve => setTimeout(resolve, 5000));
+      } catch(e) {
+         console.warn(`Error checking Pages status (attempt ${attempt}):`, e);
+      }
+   }
+   return null;
+}
+
 async function enablePagesAndTrigger(owner, repo, pat){
    if(!owner || !repo) return;
    if(!pat){ console.warn('No PAT provided to enablePagesAndTrigger'); return; }
@@ -669,7 +843,15 @@ async function enablePagesAndTrigger(owner, repo, pat){
       // enable Pages with retries
       try{
          const pagesUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`;
-         const pagesBody = { source: { branch: defaultBranch, path: '/' } };
+         // Настраиваем Pages для публикации из main ветки, корневой директории
+         const pagesBody = {
+            source: {
+               branch: "main",
+               path: "/"
+            },
+            build_type: "legacy",
+            public: true
+         };
          
          // Try enabling Pages with retries
          let success = false;
@@ -682,8 +864,16 @@ async function enablePagesAndTrigger(owner, repo, pat){
             
             if(putPages.ok) {
                success = true;
-               showToast('GitHub Pages включены', true);
                console.log('Pages enabled successfully');
+               showToast('GitHub Pages включен, ожидаем публикацию...', true);
+               
+               // Ждем появления URL сайта
+               const pagesUrl = await waitForPagesUrl(owner, repo, pat);
+               if(pagesUrl) {
+                  showToast(`Сайт опубликован: ${pagesUrl}`, true);
+               } else {
+                  showToast('Сайт включен, но URL пока не доступен. Проверьте позже в настройках репозитория.', false);
+               }
                break;
             } else {
                console.warn(`Enable pages failed attempt ${attempt}:`, putPages.status, responseText);
