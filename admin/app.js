@@ -15,6 +15,37 @@ const FIXED_TEMPLATE_REPO = () => 'Shablon1';
 
 // In-memory PAT (keeps token out of visible input when loaded from config.json or localStorage)
 let IN_MEMORY_PAT = null;
+
+// Очистка токена из всех хранилищ
+function clearPat() {
+    IN_MEMORY_PAT = null;
+    try {
+        localStorage.removeItem('admin_pat');
+        const input = $('pat');
+        if(input) input.value = '';
+        console.log('Токен очищен из всех хранилищ');
+    } catch(e) {
+        console.error('Ошибка при очистке токена:', e);
+    }
+}
+
+// Установка токена во все хранилища
+function setPat(token) {
+    if(!token) {
+        clearPat();
+        return;
+    }
+    IN_MEMORY_PAT = token;
+    try {
+        localStorage.setItem('admin_pat', token);
+        const input = $('pat');
+        if(input) input.value = token;
+        console.log('Токен успешно сохранен');
+    } catch(e) {
+        console.error('Ошибка при сохранении токена:', e);
+    }
+}
+
 function getPat(){
    try{
       if(IN_MEMORY_PAT) {
@@ -197,7 +228,8 @@ async function directCreateRepo(){
       return;
    }
    
-   try{ localStorage.setItem('admin_pat', pat); }catch(e){}
+   // Сохраняем токен только после успешной проверки
+   setPat(pat);
    const parsed = parseTemplateOwnerRepo();
    const tplOwner = parsed.owner || 'TEMPLATE_OWNER';
    const tplRepo = parsed.repo || 'TEMPLATE_REPO';
